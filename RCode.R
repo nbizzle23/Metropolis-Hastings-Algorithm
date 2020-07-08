@@ -2,6 +2,12 @@
 
 library(MASS)
 
+#Uniform Density
+y <- seq(-1,2 , length=100)
+hy <- dunif(y)
+plot(y,hy, type="l", lty=1, xlab="x value",
+     ylab="Density", main="Uniform Density",sub="Uniform Distribution on the interval [0,1] with mean 1 and variance 0")
+
 #Gamma Density 
 x <- seq(0, 7, by=.001) 
 plot(x,  dgamma(x, 2.3, 2.7), type="l", ylim=c(0,2), ylab="Density", main="Gamma Density", sub="Gamma Distribution with Alpha=2.3 and Beta=2.7") 
