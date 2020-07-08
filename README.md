@@ -1,11 +1,11 @@
 # Metropolis-Hastings-Algorithm
 
-This [project]() discusses Metropolis, Metropolis-Hastings and Gibbs Sampling Algorithms. Essentially they generate a sequence of random samples from
+This [project](https://github.com/nbizzle23/Metropolis-Hastings-Algorithm/blob/master/hnh.pdf) discusses Metropolis, Metropolis-Hastings and Gibbs Sampling Algorithms. Essentially they generate a sequence of random samples from
 a probability distribution to approximate a density of interest when its difficult to sample directly.
 
 ### Supplementary R Code
 
-Below are the libraries needed to [code]() to re-create the graphics used in this document. 
+Below are the libraries needed to [code](https://github.com/nbizzle23/Metropolis-Hastings-Algorithm/blob/master/RCode.R) to re-create the graphics used in this document. 
 
 ```
 library(MASS)
