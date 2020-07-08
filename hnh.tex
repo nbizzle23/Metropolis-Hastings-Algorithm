@@ -1,0 +1,928 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage{amsfonts}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{calrsfs}
+\usepackage{bm}
+\usepackage{microtype}
+\usepackage{amsthm}
+\usepackage{Sweave}
+\usepackage{graphics}
+\theoremstyle{plain}
+\newtheorem{fact}{Fact}[section]
+\newtheorem{thm}[fact]{Theorem}
+\newtheorem{pr}[fact]{Proposition}
+\newtheorem{re}[fact]{Remark}
+\newtheorem{cor}[fact]{Corollary}
+\newtheorem{de}[fact]{Definition}
+\newtheorem{lem}[fact]{Lemma}
+\newtheorem{exmp}[fact]{Example}
+
+\begin{document}
+\input{hnh-concordance}
+
+
+\begin{titlepage}
+\begin{center}
+
+\title\centerline{\bf Metropolis, Metropolis-Hastings and Gibbs Sampling Algorithms} \bigskip
+
+
+\centerline{by Nicholas Burke}
+\bigskip
+A project submitted to the Department of Mathematical Sciences in conformity with the requirements for Math 4301 (Honours Seminar)
+\bigskip 
+
+Lakehead University Thunder Bay, Ontario 
+\newline{Copyright \copyright 2018 Nicholas Burke}
+
+\end{center}
+\end{titlepage}
+
+\newpage
+
+\begin{abstract}
+
+This honours paper will discuss the Metropolis, the Metropolis-Hastings and the Gibbs sampling algorithms. These algorithms are classified as Markov Chain Monte Carlo methods. The purpose of these algorithms are to generate a sequence of random samples from a probability distribution to approximate a density of interest when direct sampling is difficult.  This paper will include definitions, theorems, densities as well as  R programming codes in relation to these various algorithms.
+
+\end{abstract}
+
+\newpage
+
+\centerline{\bf Acknowledgements} \bigskip
+I would like to thank my supervisor Dr. Yin Chen and Dr. Razvan Ansica for their continual support and reassuring feedback during this process. I also want to thank everyone who has supported me throughout my undergraduate journey.  
+
+\newpage 
+
+\tableofcontents
+
+\newpage
+\section{\centerline{\bf Introduction} \bigskip}
+
+The goal of this project is to depict the Metropolis, the Metropolis-Hastings and the Gibbs sampling algorithms functionality and applications in the field of mathematics. 
+
+A brief history of these algorithms, in 1953, the Metropolis algorithm  was created by Greek-American physict Nicholas Metropolis along side Arianna W. Rosenbluth, Augusta H. Teller, and Edward Teller using only symmetrical proposal distributions. Seventeen years later, in 1970, W.K Hastings coined the Metropolis-Hastings algorithm, which extended to non-symmetrical proposal distributions. In 1984, the Gibbs sampling algorithm was created by Stuart and Donald Geman, this is a special case of the Metropolis-Hastings algorithm, which uses conditional distributions as the proposal distribution.  
+
+These three algorithms fall under the umbrella of Markov Chain Monte Carlo methods, more specifically Random Walk Monte Carlo methods. Markov Chain Monte Carlo methods are used to sample from a probability distribution by constructing a Markov Chain that has the same desired distribution as its equilibrium distribution. As the number of steps in the Markov chain increases the more the distribution of samples will resemble the actual desired distribution. The Metropolis, the Metropolis-Hastings and the Gibbs sampling algorithms are all Random Walk Monte Carlo methods. Each algorithm generates a random walk using a proposal distribution and an accept-reject criteria for particular steps.  Typically these algorithms are used for sampling from a distribution when other sampling methods are not applicable, since the only requirement being the evaluation of the density function.
+
+
+This paper is constructed as follows; chapter 2, will introduce some important basic definitions and various distributions in relation to probability theory. This will include plots of important density functions to help build a basis for this paper. Also, two very important concepts will be addressed the Central Limit Theorem and the Law of Large Numbers. This will help establish the reasoning on how the Metropolis-Hastings Algorithm is able to generate representative sampling of the function. Chapter 3 will divide into the mechanism of a Markov Chain Monte Carlo method, by defining what a Markov Chain is, the use of the Ergodic Theorem, and the general procedure of a MCMC method. Chapter 4 will conclude with the Metropolis, the Metropolis-Hastings, the Gibbs sampling algorithms being outline and used in various examples.
+
+
+\newpage
+
+\section{\centerline{\bf Preliminaries} \bigskip}
+In order to understand Markov Chain Monte Carlo methods, I will introduce some basic probability theory by defining important terms and concepts. This chapter will include various probability density functions that will reappear in this paper. To grasp the content of this project, one should have a solid understanding on certain concepts such as random variables, samples, mean, variance,  probability distributions, densities and various other topics. 
+\subsection{\bf Definitions}
+\begin{de}
+A population is a group of objects about which inferences can be made.
+\end{de}
+\begin{de}
+A sample is a subset of the population
+\end{de}
+
+\begin{de}
+The sample space of the experiment is the set of all possible outcomes. 
+\end{de}
+\begin{de}
+A random variable $X$ is an expression whose value is the outcome of a particular experiment. A random variable can be discrete by having a specific finite value, or continuous by taking any numerical value in an interval.
+\end{de}
+\begin{exmp}
+In the game of basketball a player can take a shot at the basket. The shot is the discrete variable, a made shot can be denoted at 1, and a missed shot can be denoted as 0. A make or a miss are the only two possible outcomes.
+
+\end{exmp}
+
+
+
+\begin{de}A probability distribution is a function that describes all the possible values and likelihoods that a random variable can take within a given range.
+\end{de}
+\begin{exmp}
+A basketball player has a probability of making a free throw say $p=0.7$ and a probability of missing a free throw say $q=1-p=0.3$. The probability distribution of the free throws is binomial
+\begin{center}
+$b(n,p,j)=\binom{n}{k}p^jq^{n-j}$
+\end{center}
+where $n$ is the total number of free throws taken,  $j$ is the  number of made free throws and $n-j$ is the number of free throws missed.
+
+\end{exmp}
+
+
+\begin{de}
+The conditional probability of F given E  is the new probability for an event F given that an event E has already occurred, denoted as $P(F|E)$.
+\end{de}
+\begin{exmp}
+A basketball player shoots 80\% from 2-point range and 30\% from 3-point range. If he makes a 2-point shot $k$ times and then makes a 3-point shot as many times as the successful shots from 2-point range.
+\newline Let $X$ be a made 2-point shot $\sim Bin(k,0.8)$
+\newline Let $Y$ be a made 3-point shot $\sim Bin(m,0.3)$
+\newline Let $N$ be the number of total shots taken
+\newline Then the conditional probability of making a three point shot given a made 2-point shot:
+\newline \begin{center}
+$\displaystyle\sum_{k=m}^N P(Y=m|X=k)=\displaystyle\sum_{k=m}^N \binom{N}{k}(0.8)^k(1-0.8)^{N-k}\binom{k}{m}(0.3)^m(1-0.3)^{k-m}$
+\end{center}
+\end{exmp}
+
+
+\begin{de}
+Let X be a discrete random variable with sample space $\Omega$ and distribution function m(x). The expected value E(X) is defined by 
+\begin{center}{$E(X) =\displaystyle\sum_{x\in\Omega} xm(x)$ },
+\end {center}
+denoted mean or $\mu$
+\end{de}
+
+\begin{de}
+Let $X_1,X_2,X_3,...,X_n$ be a random sample from the distribution of X. Then the sample mean is denoted as
+\begin{center}$\bar{X_n}$= $\displaystyle\sum_{i=1}^n$ $\frac{X_i}{n}$
+\end{center}
+\end{de}
+
+\begin{exmp}
+The heights, in inches, of 12 players on a basketball team are 5' 9", 5' 9", 5' 6", 5' 8", 5' 11", 5' 5", 5' 7", 5' 6", 5' 6", 5' 7", 5' 10", and 6' 0". 
+To calculate the average height (in inches) as follows:
+\begin{center}
+$\frac{69+69+66+68+71+65+67+66+66+67+70+72}{12}=67.9$
+\end{center}
+This number can be interpreted as the expected value of a random variable. To see this, let an experiment consist of choosing one of the players at random, and let $X$ denote their height. Then the expected value of $X$ equals 67.9. It can also interpret this value as a sample mean, as this one team can be a sample from their respective league of teams.
+\end{exmp}
+
+
+
+
+\begin{de}
+ Let X be a real-valued random variable with density function f(x). The expected value $\mu$=E(X) is defined
+ \begin{center}$\mu$= E(X) =$\displaystyle\int_{-\infty}^{\infty}$ xf(x)dx ,
+ \end{center}
+\end{de}
+
+\begin{de}
+ If F is any event and $X$ is a random variable with sample space $\Omega$=$\{ x_1,x_2,...\}$, then the conditional expectation given F is by 
+ \begin{center}{E(X|F) =$\displaystyle\sum_j$ $x_j$ $P(X = x_j|F)$}
+ \end{center}
+\end{de}
+
+\begin{de}Let X be a numerically valued random variable with expected value $\mu$ = E(X). Then the variance of X, denoted by V(X),
+\begin{center}V(X) = E$((X)^2)$ 
+\end{center}
+also denoted as $\sigma^2$.
+\end{de}
+
+\begin{de}
+The standard deviation of X, denoted by D(X)
+\begin{center}D(X) =$\sqrt{(V(X)}$
+\end{center}
+also denoted as $\sigma$.
+\end{de}
+
+
+\subsection{\bf Densities}
+We will now discuss various probability distributions, along with their respective density function plots to help visualize these concepts.These densities can be used as proposal distributions for the Metropolis and the Metropolis-Hastings algorithms, they can also be generated using these same algorithms.
+
+\subsection*{Continuous Uniform Density}
+The continuous uniform density function is the simplest density function. This density corresponds to an experiment in which all events of equal size are likely to occur. The continuous uniform density is important in generating a random value for the Metropolis and the Metropolis-Hastings algorithms. The following is the the equation for the uniform density function
+\begin{center}
+$f(\omega)$= $\frac{1}{b-a}$  {if a $\leq \omega \leq b$}, 0  otherwise
+\end{center}
+
+
+
+
+\includegraphics{hnh-001}
+
+
+\subsection*{Gamma Density}
+The gamma density has parameters $\lambda$ and $n$, in the general case $n$ can be any positive real number.
+It is often used as a conjugate prior distribution for various types of inverse scale parameters. The inverse gamma distribution can be used as the conjugate prior for the variance of a normal distribution. 
+The expected value for the gamma density is
+\begin{center}
+$E(X)=\frac{\alpha}{\beta}$ 
+\end{center}
+and the variance is 
+\begin{center}
+$Var(X)=\frac{\alpha}{\beta^2}$
+\end{center}
+The following is the the equation for the gamma density function:
+\begin{center}{$g_n(x)=\lambda \frac{(\lambda x)^{n-1}}{(n-1)!e^{-\lambda x}}$ if $x>0 $, 0 otherwise}
+\end{center}
+
+
+\includegraphics{hnh-002}
+
+
+
+\subsection*{Beta Density} 
+The beta density is the conjugate prior probability density for the Bernoulli, binomial, negative binomial and geometric densities. It has both discrete and continuous coordinates, with two parameters $\alpha$ ,$\beta$ defined by 
+\begin{center}$B(\alpha, \beta, x)$=$\frac {1}{B(\alpha, \beta)}$ $x^{\alpha-1}(1-x)^{\beta-1}$, if $ 0 \leq x \leq 1$ ,
+\newline 0 otherwise
+\end{center}
+The expected value for the beta density is
+\begin{center}
+$E(X)=\frac{\alpha}{\alpha+\beta}$ 
+\end{center}
+and the variance is 
+\begin{center}
+$Var(X)=\frac{\alpha\beta}{(\alpha+\beta)^2(\alpha+\beta+1)}$
+\end{center}
+
+{Here $\alpha$ and $\beta$ are any positive numbers, and the beta function $B(\alpha,\beta)$ is given by the area under the graph of $x^{\alpha-1}(1-x)^{\beta-1}$ between 0 and 1:}
+\begin{center}$B(\alpha, \beta)=\int_0^1 x^{\alpha-1}(1-x)^{\beta-1}dx$ 
+\end{center}
+
+\includegraphics{hnh-003}
+
+
+\subsection*{Normal Density}
+The normal density is one of the more important densities in probability, its properties can relate to various theorems and processes. The normal distribution is symmetric which makes it an ideal proposal density for the Metropolis Algorithm. 
+\newline The equation for the normal density function is as follows
+\begin{center}
+$f_x(x)=\frac{1}{2\pi\sigma} e^\frac{-{x-\mu}^2}{2\sigma^2}$
+\end{center}
+where $\mu$ represents the "center" of the density and $\sigma$ represents the "spread" of the density.
+
+\includegraphics{hnh-004}
+
+\subsection*{Bi-variate Normal density}
+ Two random variables $X$ and $Y$ are said to be bi-variate normal, if $aX+bY$ has a normal distribution for all a,b $\in$ $\Re$.
+\newline The equation for the bi-variate normal distribution function is as follows:
+\begin{center}$f_{XY}(x,y)=\frac{1}{2\pi \sigma_X \sigma_Y \sqrt{1-\rho^2}}$ 
+$\exp\{-\frac{1}{2(1-\rho^2)}[(\frac{x-\mu_X}{\sigma_X})^2+(\frac{y-\mu_Y}{\sigma_Y})^2-2\rho\frac{(x-\mu_x)(y-\mu_Y)}{\sigma_X\sigma_Y}]\}$
+\end{center}
+ where $\mu_X,\mu_Y  \in  \Re, \sigma_X, \sigma_Y > 0$ and $\rho \in (-1,1)$ are all constants
+
+\includegraphics{hnh-005}
+
+The bi-variate normal distribution can be used to demonstrate how the Gibbs sampling algorithm works, since it's multi-variate with a correlation between each variable.
+
+\newpage
+
+Now to introduce two very important facts to help solidify the foundation for this project. The Law of Large Numbers is a fundamental theorem of probability which is also referred to as the Law of Averages, is consistent for both continuous and discrete random variables. The Central Limit Theorem is another fundamental theorem of probability that  tells us what happens when we have the sum of a large number of independent random variables each of which contributes a small amount to the total.
+
+
+\subsection{\bf Law of Large Numbers}
+The Law of Large Numbers implies that as a sample size grows the sample mean gets closer to the average of the whole population.
+\newline{\bf {The Law of Large Numbers for discrete random variables}}
+\begin{thm}
+Let $X_1, X_2...X_n$, be an independent trails process with finite expected value $\mu$ and finite variance $\sigma^2$.
+\newline{Let $S_n=X_1+X_2+...+X_n$. Then for any $\epsilon>0$},
+\begin{center}
+$P(|\frac{S_n}{n}-\mu|\geq\epsilon)\rightarrow 0$ as n $\rightarrow\infty$
+\end{center}
+\begin{center}
+$P(|\frac{S_n}{n}-\mu|<\epsilon)\rightarrow 1$ as n $\rightarrow\infty$
+\end{center}
+where $\frac{S_n}{n}$ denotes the average of individual outcomes.
+\end{thm}
+The Law of Large Numbers has a natural analogue for continuous random distributions.
+\newline{\bf {The Law of Large Numbers for continuous random variables,}}
+\begin{thm}
+Let $X_1, X_2...X_n$, be an independent trails process with continuous density function $f$, finite expected value $\mu$ and finite variance $\sigma^2$\newline{Let $S_n=X_1+X_2+...+X_n$ then for an $\epsilon>0$,} 
+\begin{center}
+$\lim$ $P(|\frac{S_n}{n}-\mu|\geq\epsilon)= 0$ as n $\rightarrow\infty$ 
+\end{center}
+\begin{center}
+$\lim$$P(|\frac{S_n}{n}-\mu|<\epsilon)= 1$ as n $\rightarrow\infty$,
+\end{center}
+where $\frac{S_n}{n}$ denotes the average of individual outcomes. 
+\end{thm}
+
+
+
+
+\begin{exmp}
+ Consider the career free throw percentage of the basketball player to be 75\% . Suppose that the player makes only 33 of their next 50 throws resulting in a relative frequency of 0.66, the more free throws that he attempts, the closer his relative frequency will get to 0.75. Suppose he were to make exactly 75 of his next 100 free throws that he takes. This probability one would predict to occur, then his relative frequency would be 108/150, or 0.72 making it much closer to 0.75. If he makes 75 of the next 100 free throws, then his relative frequency becomes 183/250, or 0.732, and it will keep getting closer from there. The Law of Large Numbers holds that with an increasing number of trials, the cumulative relative frequency of an event will tend closer and closer to the actual probability of the event.
+\end{exmp}
+This can be categorized as a Bernoulli experiment, and we can expect that in a large number of repetitions the proportion of times that the event will occur to be near $p$.
+\subsection{\bf Central Limit Theorem}
+The Central Limit states under very general conditions, if we sum a large number of mutually independent random variables then the distribution of the sum can be closely approximated by the normal density.
+
+\begin{thm}
+Let $X_1,X_2,...,X_n$ be a sequence of independent random variables. Let $S_n=X_1+X_2+...+X_n$ for each n, the mean is $\mu_n$ and the variance $\sigma_n^2$. The mean and the variance of $S_n$ to be $m_n$ and $s_n^2$ as $s_n\rightarrow\infty$.If there exists a constant A, such that $|X_n|\geq$A for all n,then for a<b 
+\begin{center}
+$\lim$ $P(a<\frac{S_n-m_n}{s_n}<b)=$ $\frac{1}{\sqrt{2\pi}}$ $\int_a^b e^\frac{-x^2}{2} dx$  as n$\rightarrow\infty$ 
+\end{center}
+\end{thm}
+
+\begin{exmp}
+A basketball player shoots 80 percent from the free throw line on average. We can use the Central Limit Theorem to determine the probability that he will shoot 85 percent from the free throw line on 100 attempts. We will assume that each free throw is an independent event.
+$n=100$ and each $X_i$ is a Bernoulli random variable with $\mu=0.80$ and $\sigma=0.16$ Applying the Central Limit Theorem 
+\begin{center} $P(\displaystyle\sum_{i=1}^n X_i>85)$=$P(\displaystyle\sum_{i=1}^n X_i>85.5)$=$P(\frac{\sum_{i=1}^n X_i-80}{4}\geq \frac{85.5-80}{4})$ $\approx$ $1-\Phi(1.375)\approx 0.085$
+\end{center}
+\end{exmp}
+The Law of Large Numbers and the Central Limit Theorem are imperative to Markov Chain Monte Carlo methods. These principles explain how samples converge and can be manipulate to densities that are desirable. The Law of Large Numbers is essential to the Ergodic theorem, the main concept on why Markov Chain Monte Carlo works. 
+
+\newpage
+\section{\centerline{\bf MCMC}}
+Markov Chain Monte Carlo methods are iterative sampling methods that allow sampling from a posterior density. The main goal is to estimate the mean
+\begin{center}
+$\mu=E_\pi f(X)$.
+\end{center}
+By constructing a Markov chain that has a stationary distribution $\pi=\pi P$. Using the Law of Large Numbers it can generate a sample that would be representative of the population mean that we are trying to find. In order to grasp how Markov Chain Monte Carlo methods work, I will define what a Markov Chain is and how the samples are then generated.
+
+\subsection{\bf Markov Chains} 
+\begin{de}
+A process in which the outcome of a given experiment can affect the outcome of the next experiment is called a Markov Chain.
+\end{de}
+
+
+\begin{de}
+Let $S =(s_1,s_2,...,s_r)$ be a set of states. If the chain is in state $s_i$, then moves to state $s_j$ at the next step with probability $p_{ij}$ which is only dependent upon the current state alone.
+\end{de}
+
+
+\begin{de}
+At any time n, the next state $X_{n+1}$ is conditionally independent of the past $X_0,...,X_{n-1}$ given the present state $X_n$. This is called the Markov Property.
+\end{de}
+
+
+\begin{de}
+A stochastic process is a sequence of events in which the outcome at any stage depends on some probability. 
+\end{de}
+\begin{de}
+A Markov process is a stochastic process with:
+\begin{enumerate}
+\item {The number of possible outcomes or states is finite.}
+\item {The outcomes at any stage depends only on the outcome of the previous stage.}
+\item {The probabilities are constant over time.}
+\end{enumerate}
+\end{de} 
+
+
+
+
+\subsection*{Transition Matrix}
+The matrix of transition probabilities or the transition matrix is a square array of $p_{ij}$ probabilities  denoting the probability of each step occurring. If a Markov chain has $r$ states, then  
+\begin{center}
+$p_{ij}=\displaystyle\sum_{k=1}^r$$p_{ik}p_{kj}$.
+\end{center}
+$$
+P=
+\begin{pmatrix} 
+p_{11} & \cdots & p_{1k}\\
+p_{21} & \cdots & p_{2k}\\
+\vdots & \ddots & \vdots\\
+p_{k1} & \cdots & p_{kk}
+\end{pmatrix}
+$$
+
+\begin{de}
+A transition matrix is irreducible or ergodic if it is possible to go from every state to every state.
+\end{de}
+
+\begin{de}
+ An irreducible Markov chain to be aperiodic is that there exist a state i such that $P(i,i) > 0$.
+\end{de}
+\begin{de}
+A state $i$ is recurrent if, when the Markov chain is started out in state $i$, the chain is certain to return to $i$ at some finite future time.
+\end{de}
+
+\begin{de}
+A stationary distribution of a Markov chain is a probability distribution that remains unchanged in the Markov chain as time progresses. Typically, it is represented as a row vector $\pi$ whose entries are probabilities summing to 1 , and given transition matrix $P$ ,it satisfies.
+\end{de}
+\begin{de}
+Regardless of the starting value $i$ in the chain, the long run  proportion of time the chain i, the long run proportion of time the chain spends in state $j$ equals $\pi(j)$, for every possible state $j$. Then $\pi$ is called a limiting distribution.
+\end{de} 
+
+\begin{exmp}
+A basketball player has a particular free throw percentages in the following scenarios: 
+\begin{description}
+  \item[1/2 if he misses the previous two free throws]
+  \item [2/3 if made one of his last two free throws]
+  \item[ 3/4 if he has made both his last free throws]
+\end{description}
+These probabilities and event can be modeled as a Markov Chain, and the limiting fraction if the time he makes a free throw can be calculated.
+\newline Let $X_n$ represent a made free throw at time $n$
+\newline Let $Y_n=(X_{n-1},X_n)$ represent the last two free throws taken. 
+\newline There are 4 different states:
+\begin{description}
+  \item[(0,0)- two missed free throws]
+  \item [(0,1)- a missed free throw followed by a made free throw] 
+  \item[(1,0)- a made free throw followed by a missed free throw] 
+  \item[(1,1,)- two consecutive made free throws]
+\end{description}
+
+The transition matrix is the following 
+$$
+P=
+\begin{pmatrix} 
+1/2 & 0 & 1/2 & 0\\
+1/3 & 0 & 2/3 & 0\\
+0 & 1/3 & 0 & 2/3\\
+0 & 1/4 & 0 & 3/4
+\end{pmatrix}
+$$
+\newline This is an irreducible, positive recurrent, aperiodic chain. The stationary distribution: 
+\begin{center}$\pi(0,0)=1/8$, $\pi(0,1)=\pi(1,0)=3/16$, $\pi(1,1)=1/2$.
+\end{center}
+The proportion of the time that he makes one free throw is equal to the limit of the probability that he makes a free throw at a given time is equal to 
+\begin{center}
+$\lim_{n\rightarrow \infty}P(X_n=1)$ =$\pi(1,0)+\pi(1,1)=11/16$.
+\end{center}
+\end{exmp}
+All Markov chains used for Markov Chain Monte Carlo purposes need to have a unique stationary and limiting distribution.
+
+\subsection*{Ergodic Theorem}
+The Ergodic Theorem is very important in Markov Chain Monte Carlo, this theorem is the Law of Large of Number in reference to Markov Chains. This  Here is a formal definition of the theorem. 
+\begin{thm}
+If $(X_0,X_1,...,X_n)$ is an irreducible discrete Markov Chain with stationary distribution $\pi$, then
+
+\begin{center}
+$\frac{1}{n} \displaystyle\sum_{i=1}^n f(X_i)\rightarrow Ef(X)$ as n$\rightarrow \infty$ where $X\sim \pi$, 
+\end{center}
+for any bounded function $f:X\rightarrow \Re$.
+\end{thm}
+
+\subsection{\bf Importance Sampling}
+Importance sampling is used to estimate the properties of a specific distribution using only samples that are generated from a different distribution than the distribution of interest.  In order to find an estimation of the expectation in regards to the distribution of interest let's say $f$ we will need to compute the weighted average of these draws. Want to find 
+\begin{center}
+$\mu=E(f(x))=\int f(x)p(x)dx=\displaystyle\int\frac{f(x)p(x)}{q(x)} \approx \frac {1}{n} \displaystyle\sum_{i=1}^n \frac{f(X_i)p(x_i)}{q(x_i)}$  
+\newline $\forall q$ such that $q(x)=0 \Rightarrow p(x)=0$ 
+\end{center}
+where $p$ is the nominal distribution and $q$ is the importance distribution 
+\newline The distribution $p$ is hard to sample from where as the distribution $q$  is  easier to sample from. The likelihood ratio is $\frac {p(x)}{q(x)}$.
+\newline{\bf General Strategy:}
+\begin{itemize}
+  \item Sample $n$ variables  $x_1,x_2,..,x_n \sim q$ from $q(x)$
+  \item For each variable define $w_i=\frac{p(x)}{q(x)}$
+  \item The importance weighted estimator is $\hat{\mu}=\frac{\sum_{i=1}^n w_i(x_i)}{\sum_{i=1}^n w_i}$
+\end{itemize}
+
+Importance sampling does not work very well in higher dimensions.
+\newpage
+\section*{R Output}
+This is an example of importance sampling used to estimate 
+\begin{center}$\displaystyle\int^0_1 x^2$ 
+\end{center}
+With beta being the importance distribution and the weighted estimator being the uniform density over the beta density. Using with 1,000,000 samples generated by R.
+\begin{Schunk}
+\begin{Sinput}
+> w <- function(x) dunif(x,0,1)/dbeta(x,0.3,1)
+> f <- function(x) x^(2)
+> X <- rbeta(1000000,0.3,1)
+> Y <- w(X)*f(X)
+> c(mean(Y),var(Y))
+\end{Sinput}
+\begin{Soutput}
+[1] 0.3334128 0.4735536
+\end{Soutput}
+\end{Schunk}
+
+Based on this output it demonstrates that importance sampling is a good approximation for the integral. The real value of the integral is 
+\begin{center}$\displaystyle\int^0_1 x^2=\frac{1}{3}$
+\end{center}
+
+
+
+\newpage
+
+
+\subsection*{Monte Carlo}
+Monte Carlo is sampling from a distribution, to estimate quantities whose exact values are difficult to calculate exactly.
+It uses random numbers to simulate complicated sequences. The Monte Carlo estimator for $\mu$ is: 
+\begin{center}$\hat{\mu}=\frac{1}{n}\sum_{i=1}^n f(X_i)$ where $(X_i)\overset{iid}\sim \pi, i=1,...,n$ 
+\end{center}
+where $\pi(x)$ is the uniform distribution on the unit square
+
+\subsection{\bf Markov Chain Monte Carlo}
+The goal of a March Chain Monte Carlo  is to sample from a distribution $p$ or approximate 
+\begin{center}
+$E(f(x))\approx \frac{1}{n} \displaystyle\sum_{i=1}^n f(X_i)$ , $X_i\overset{iid}\sim p$ 
+\end{center}
+where $p$ is a complicated distribution.
+\newline Markov Chain Monte Carlo is sampling using local information that is available.
+Markov chain Monte Carlo methods are primarily used for calculating numerical approximations of multi-dimensional integrals. These methods sample from a probability distribution based on the construction a Markov chain that has the desired distribution as its equilibrium distribution. The state of the chain after a number of steps is then used as a sample of the desired distribution. The quality of the sample improves as a function of the number of steps that occur.
+\newline{\bf General Strategy:}
+\begin{itemize}
+  \item {Current position $X_t=x$}
+  \item{Propose a candidate $y\sim q(x,.$)}
+  \item{with probability $\alpha(x,y)$ accept y: $X_{t+1}=y$}
+  \item{otherwise stay where you are:$X_{t+1}=x$}
+\end{itemize}
+
+
+The Markov chain becomes a random walk if we have a symmetric proposal density $q$, this is more evident in the Metropolis Algorithm.
+
+\begin{de}
+Let $\{X_k\}_{k=1}^\infty$ be a sequence of independent, identically distributed discrete random variables. For each positive integer $n$, we let $S_n$ denote the sum $X_1+X_2+...+X_n$. The sequence $\{S_n\}_{n=1}^\infty$ is called a random walk. 
+\end{de}
+
+
+ 
+\newpage
+
+\section{\centerline{\bf Metropolis, Metropolis-Hastings and Gibbs}\bigskip}
+
+\subsection{\bf Metropolis Algorithm}
+The Metropolis Algorithm is considered to be a top 10 sampling algorithm in the statistical field today.
+The goal of this algorithm is to sample from a distribution $\pi$ to approximate
+\begin{center}$E_{\pi}f(X)$, where $X\overset{iid}\sim \pi$
+\end{center}
+Construct a Markov Chain with a stationary distribution, so its easy to sample from then, apply the Ergodic Theorem. Run the Markov chain until stationary then all subsequent samples are from the stationary distribution.
+\newline{\bf General Strategy:}
+\begin{itemize}
+  \item Choose symmetric proposal distribution Q ($Q_{ab}=Q_{ba}$)
+  \item Initialize at $x_0\in X$
+  \item for $i=0,1,2,...,n-1$
+  \item sample $x$ from $Q(x_i,x)$ 
+  \item sample $\mu$ from uniform (0,1)
+  \item accept or reject proposal based on:if $\mu$ $<\frac{\pi(x)}{\pi(x_i)}$ then $x_{i+1}=x$, else $x_{i+1}=x_i$
+  \newline{ Output $x_0,x_1,...,x_n$ sample after run $n$ times}
+\end{itemize}
+
+
+
+\newpage
+\section*{R Output}
+This is an example of using the Metropolis algorithm with 10,000 samples from the uniform proposal distribution $U(-1,1)$ to generate the
+\begin{center}Normal distribution $N(0,1)$
+\end{center}
+The plots below show that the Markov chain is well mixing and that there is independence among the samples generated. Also a histogram of the samples resembling the normal density curve.
+\newline R Code:
+\begin{Schunk}
+\begin{Sinput}
+> norm<-function (n, alpha) 
++ {
++   vec <- vector("numeric", n)
++   x <- 0
++   vec[1] <- x
++   for (i in 2:n) {
++     rv <- runif(1,-alpha,alpha)
++     candidate <- x + rv
++     accept <- min(1, dnorm(candidate)/dnorm(x))
++     u <- runif(1)
++     if (u < accept) 
++       x <- candidate
++     vec[i] <- x
++   }
++   vec
++ }
+> normvec<-norm(10000,1)
+> c(mean(normvec),var(normvec))
+\end{Sinput}
+\begin{Soutput}
+[1] -0.02567952  0.97362265
+\end{Soutput}
+\begin{Sinput}
+> par(mfrow=c(2,1))
+> plot(ts(normvec))
+> hist(normvec,30)
+> par(mfrow=c(1,1))
+> 
+\end{Sinput}
+\end{Schunk}
+\includegraphics{hnh-007}
+
+
+\newpage
+\subsection{\bf Metropolis-Hastings Algorithm}
+The Metropolis-Hastings algorithm is used to obtain a sequence of random samples from a probability distribution for which direct sampling is hard.
+The goal of this algorithm is still the same, to sample from a distribution $\pi$ to approximate
+\begin{center}$E_{\pi}f(X)$, where $X\overset{iid}\sim \pi$
+\end{center}
+This sequence can be used to approximate the distribution or to compute an integral. This algorithm generates a random walk using a proposal density and a method for rejecting some of the proposed moves. The Metropolis-Hastings algorithm is a more generalized version of the Metropolis algorithm. This algorithm can draw samples from any probability distribution that necessarily symmetric provided that the value of the function $f(x)$ can be computed. This proposal distribution must be proportional to the density of the probability distribution of interest.  
+\newline{\bf General Strategy:}
+
+\begin{itemize}
+  \item Initialize at $x_0$, set $i=0$
+  \item Sample $x\sim q(x|x_i)$ from the proposal distribution
+  \item Calculate acceptance probability $P(x|x_i)$=$min=\{1,\frac{\pi(x)q(x_i|x)}{\pi(x_i)q(x|x_i)}\}$ 
+  \newline(moving from current state $x_i$ to proposed state $x$)
+  \item Sample $\mu$ from uniform [0,1]
+  \item if $\mu \leq P(x|x_i)$ accept new state $x_{i+1}=x$
+  \item if $\mu > P(x|x_i)$ reject new state and copy old state forward $x_{i+1}=x_i$
+  \item Output $x_0,x_1,...,x_n$ sample after run $n$ times
+\end{itemize}
+\newpage
+\subsection*{R output}
+This is an example of the Metropolis Hastings Algorithm simulating  the 
+\begin{center}Gamma distribution $Gam(2.3,2.7)$
+\end{center}
+Using 100,000 samples from normal proposal distribution $N(0.85,0.30)$ .The plots below show that the chain is well mixing and that there is independence among the samples generated. Also a histogram of the samples generated resembling the gamma density curve.
+\newline R code:
+\begin{Schunk}
+\begin{Sinput}
+> gamm<-function (n, a, b) 
++ {
++   mu <- a/b
++   sig <- sqrt(a/(b * b))
++   vec <- vector("numeric", n)
++   x <- a/b
++   vec[1] <- x
++   for (i in 2:n) {
++     candidate <- rnorm(1, mu, sig)
++     accept <- min(1, (dgamma(candidate,a, b)/dgamma(x, a, b))/(dnorm(candidate,mu, sig)/dnorm(x, mu, sig)))
++     u <- runif(1)
++     if (u < accept) 
++       x <- candidate
++     vec[i] <- x
++   }
++   vec
++ }
+> vec<-gamm(100000,2.3,2.7)
+> c(mean(vec),var(vec))
+\end{Sinput}
+\begin{Soutput}
+[1] 0.8553529 0.3268857
+\end{Soutput}
+\begin{Sinput}
+> par(mfrow=c(2,1))
+> plot(ts(vec))
+> hist(vec,30)
+> par(mfrow=c(1,1))
+> 
+\end{Sinput}
+\end{Schunk}
+\includegraphics{hnh-008}
+
+\newpage
+\subsection{\bf Gibbs Sampling}
+Gibbs sampling is a special case of the Metropolis-Hastings Algorithm. Gibbs sampling can be applied when the joint distribution is unknown or hard to sample from directly, but the conditional distribution of each variable is known and is easy to sample from. The Gibbs sampling algorithm generates a new sample from the distribution of each variable based upon the conditional distribution among the current values of the other variable. \newline The goal of Gibbs Sampling is to sample from a distribution $\pi$ to approximate
+\begin{center}
+$E_{\pi}f(x_1,x_2)$, where $(x_1,x_2)\overset{iid}\sim \pi$
+\end{center}
+By obtaining a sequence of observations which are approximated form a specific multivariate probability distribution.
+This sequence can be used to approximate the joint distribution to approximate the marginal distribution of one of the variables, or some subset of variables to compute an integral. It requires all the conditional distributions of the target distribution to be sampled exactly. Based on full conditional distributions $p(x_1|x_2)$ and $p(x_2|x_1)$  with the target distribution $\pi(x_1,x_2)$
+\newline{\bf General Strategy:}
+\begin{itemize}
+  \item Alternate between $x_1$ and $x_2$
+  \item Sample from $x_1 \sim P(x_1|x_2)$
+  \item Sample from $x_2 \sim P(x_2|x_1)$
+\end{itemize}
+Using the procedure does not require an acceptance ratio to be calculate since it will  always be 1. 
+
+\subsection*{Bivariate Normal}
+
+The bivariate normal distribution can be generated using the Gibbs Sampler. Let $Z=(x,y)$ be a bivariate normal sample(of size 1), with mean $\mu=(\mu_x,\mu_y)^T$ is unknown. The variances are known and equal to 1, and the correlation $\rho$ is known. Let's take a flat prior for $\mu$, then the posterior is also bivariate normal, with the same correlation matrix but with mean Z. 
+\newline{\bf Gibbs Sampler:}
+\begin{enumerate}
+  \item Start with $\mu_x^{(0)}=Z_1$ 
+  \item For m=1,...,M do
+  \begin{center}
+  $\mu_y^{(m)}|(\mu_x^{(m-1)},Z)\sim N(Y_2+\rho(\mu_x^{(m-1)}-Z_1),1-\rho^2)$
+  \newline $\mu_x^{(m)}|(\mu_y^{(m)},Y)\sim N(Z_1+\rho(\mu_y^{(m)}-Z_2),1-\rho^2)$
+  \end{center}
+\end{enumerate}
+
+The first few iterations can be disregarded as a burn-in. For a sufficiently large M, the sample 
+\begin{center}$\{\mu^{(m)}=(\mu_x^{(m},\mu_y^{(m})^T:m=1,..M \}$ 
+\end{center}
+should be close to a sample from the bivariate normal posterior.
+
+
+
+\newpage
+\section*{R Output}
+This is an example of using Gibbs sampling to generate the 
+\begin{center}Bivariate normal distribution $N(0,0,1,1,0.97)$.
+\end{center}
+Using 10,000 samples  successively sampling from the conditional distributions. The plots below show that the  chain is well mixing among the samples generated for both the x and y variables. Also a scatter plot of the data displaying their correlation as well as a histograms of the data resembling the normal density curve for both variables. 
+\newline R code:
+\begin{Schunk}
+\begin{Sinput}
+> gibbs<-function (n, rho) 
++ {
++   mat <- matrix(ncol = 2, nrow = n)
++   x <- 0
++   y <- 0
++   mat[1, ] <- c(x, y)
++   for (i in 2:n) {
++     x <- rnorm(1, rho * y, sqrt(1 - rho^2))
++     y <- rnorm(1, rho * x, sqrt(1 - rho^2))
++     mat[i, ] <- c(x, y)
++   }
++   mat
++ }
+> bvn<-gibbs(10000,0.97)
+> mean(bvn)
+\end{Sinput}
+\begin{Soutput}
+[1] -0.05310733
+\end{Soutput}
+\begin{Sinput}
+> var(bvn)
+\end{Sinput}
+\begin{Soutput}
+          [,1]      [,2]
+[1,] 0.9076485 0.8755069
+[2,] 0.8755069 0.9049626
+\end{Soutput}
+\begin{Sinput}
+> par(mfrow=c(3,2))
+> plot(bvn,col=1:10000)
+> plot(bvn,type="l")
+> plot(ts(bvn[,1]), xlab='x')
+> plot(ts(bvn[,2]), xlab='y')
+> hist(bvn[,1],40, xlab='Samples', main= 'Histogram of x')
+> hist(bvn[,2],40, xlab= 'Samples', main= 'Histogram of y')
+> par(mfrow=c(1,1))
+\end{Sinput}
+\end{Schunk}
+\includegraphics{hnh-009}
+
+
+\newpage
+\subsection*{Gibbs Sampler for Full Conditional Distributions}
+Consider the set of samples $(x_1,...,x_n)$ 
+\begin{center}
+$x_i\overset{iid}\sim N(\mu,\hat\sigma^2)$for $i=1,...n$
+\end{center}
+where $\mu$ and $\sigma^2$ are unknown. 
+\newline We are trying to estimate $\mu$ and $\sigma^2$ based on their prior distributions:
+\begin{center}
+ $\mu \sim N(m,s^2)$
+\newline $\sigma^{-2}=\phi \sim Gam(a,b)$ 
+\end{center}
+$where$ 
+\begin{center}$m,s^2$ and $b$ are known hyperparameters.
+\end{center}
+ The joint posterior distribution $p(\mu,\sigma^2|x)$ does not have closed form. To estimate $\mu$ and $\sigma^2$ we need to sample $(\mu,\sigma^2)$. Using  the full conditional distribution for $\mu$ $p(\mu,\sigma^2|x)$ and the full conditional distribution $p(\sigma^2|\mu,x)$ for $\sigma^2$.
+
+
+{\bf Gibbs Sampling Algorithm:}
+\begin{itemize}
+  \item Sample $\mu$ from $p(\mu|\sigma,x)$ 
+  \item Sample $\sigma^2$ from $p(\sigma^2|\mu,x)$
+\end{itemize}
+
+The full conditional distribution for $\mu$ is normal and the full conditional for $\sigma^2$ is inverse gamma. In Bayes model
+
+\begin{center}
+$(\mu|\sigma^2,x)\sim N(m^*,s_*^2)$
+\newline $\sigma^{-2}|\mu,x=\phi|\mu,x\sim Gam(a^*,b^*)$
+\end{center}
+$where$
+\begin{center}
+$m^*=\frac{\frac{1}{s^2}m+\frac{n}{\sigma^2}\bar x}{\frac{1}{s^2}+\frac{n}{\sigma^2}}$
+\newline $s_*^2=\frac{1}{\frac{1}{s^2}+\frac{n}{\sigma^2}}$
+\newline $a^*=a+\frac{n}{2}$
+\newline $b^*=\frac{\sum_{i=1}^n (y_i-\hat\mu)^2}{2}+b$
+\end{center}
+
+
+{\bf Gibbs Sampler:}
+\begin{itemize}
+  \item Sample $\mu$ from $N(\mu^*,s_*^2)$
+  \item Sample $\sigma^2$ by sampling $\phi$ from $Gam(a^*,b^*)$ and setting $\sigma^2=\frac{1}{\phi}$
+\end{itemize}
+
+\newpage 
+\subsection*{R Output}
+This is an example of using the Gibbs Sampler for $\mu$ and $\phi$ with 53 samples from the Normal Distribution with mean $\mu=5$ and variance $\sigma^2$ from its inverse gamma marginal distribution and then, conditional on each value for $\sigma^2=2$, samples $\mu$ from the approximate
+\begin{center}
+Normal Distributions for $\mu=5$ and $\sigma=2$ 
+\end{center}
+The plots below show that the chain is well mixing among both $\mu$ and $\sigma^2$ and independence among the samples generated. Also the plots of the marginal posterior density of $\mu$ and $\sigma^2$ of resembling the Normal density curve centered at 5 for $\mu$ and 2 for $\sigma^2$.
+\newline R code:
+\begin{Schunk}
+\begin{Sinput}
+> mu <- 5
+> sigma2 <- 2
+> phi <- 1/sigma2
+> #Draw a Sample of size 53 From a N(mu,sigma2)
+> x <- rnorm(53,mu,sqrt(sigma2))
+> #Write the data to a data file
+> write(x,file="./sampledata.dat",sep=",")
+> #Read the data file and save it as an object
+> mydata <- scan("./sampledata.dat",sep=",")
+> #Prior Values
+> m <- 0
+> s2 <- 10
+> a <- 2
+> b <- 3
+> n <- length(mydata)
+> #Allocate Space to save Gibbs sampling draws
+> totdraws <- 5000
+> mudraws <- rep(0,5000) #Initial Value of mu is 0
+> sigma2draws <- rep(1,5000) #Initial Value of s2 is 1
+> #Begin the Gibbs sampler
+> for(i in 2:totdraws){
++   
++   #Generate a Draw for mu
++   mstar <- ((1/s2)*m + (n/sigma2draws[i-1])*mean(mydata))/((1/s2)+(n/sigma2draws[i-1]))
++   s2star <- 1/((1/s2)+(n/sigma2draws[i-1]))
++   mudraws[i] <- rnorm(1,mstar,sqrt(s2star))
++   
++   #Generate a Draw for Sigma2
++   astar <- a + (n/2)
++   bstar <- (sum((mydata-mudraws[i])^2)/2) + b
++   phitemp <- rgamma(1,astar,bstar)
++   sigma2draws[i] <- 1/phitemp
++   
++ }
+> #Discard the first 500 Draws as Burn-in
+> mudraws <- mudraws[501:length(mudraws)]
+> sigma2draws <- sigma2draws[501:length(mudraws)]
+> #Partition plot into 4 subplots
+> par(mfrow=c(2,2))
+> #Plot Trace Plots
+> plot(mudraws,type="l")
+> plot(sigma2draws,type="l")
+> #Plot Marginal Posterior Densities
+> plot(density(mudraws),col="red",main=expression(paste("Marginal Posterior Density of ",mu)))
+> plot(density(sigma2draws),col="blue",main=expression(paste("Marginal Posterior Density of ",sigma^2)))
+> 
+> 
+\end{Sinput}
+\end{Schunk}
+\includegraphics{hnh-010}
+
+
+\newpage
+
+
+\subsection*{Application}
+
+\subsection*{Shooting Percentage Using the Metropolis Algorithm}
+I will now use the Metropolis Algorithm to model the shooting percentages of basketball team as the normal distribution.
+A basketball team shooting percentage is the compilation of the each players 3-point and 2-point field goal makes divided by the total amount if shots taken by the team. 
+\newline Now let's consider the shooting percentage of a basketball team's over n games: 
+\begin{center}
+$y=(y_1,...,y_n)$
+\end{center}
+The percentages can be modeled using beta distribution,
+\begin{center}
+$y_ii \sim Beta(\theta,2)$ for $\theta >0$ 
+\newline $f(y_i|\theta)=\theta(1+\theta)y_i^{\theta-1}(1-y_i)$
+\end{center}
+and use Gamma(a,b) as the prior distribution for $\theta$,
+\begin{center}
+$p(\theta|y)\propto \theta^{n+a-1}(\theta + 1)^n e^{-b\theta}(\displaystyle\prod_{i=1}^n y_i)^{\theta} :=h(\theta)$
+\end{center}
+Let's use the shooting percentages over the n=20 games with 
+\begin{center}
+$\displaystyle\sum_{i=1}^{20} log y_i =-9.89$
+\end{center}
+Choose $a=b=1$ for the prior distribution
+\newline Previously approximated posterior using Bayesian Central Limit Theorem:
+\begin{center}
+$p(\theta|y)\approx N(3.24,0.33) $
+\end{center}
+Use the Metropolis Algorithm to sample from $p(\theta|y)$ 
+\newline{\bf Steps for Metropolis Algorithm}
+\begin{itemize}
+  \item Initial value $\theta^{(0)}=3.24$
+  \item Sample from $p(\cdot|\theta)=N(\theta^{t-1},0.33)$
+  \item Sample $\mu$ from uniform(0,1)
+  \item accept or reject proposal based on if $\mu$ < $\frac{N(\theta^t,0.33)}{N(\theta^{t-1},0.33)}$ then $\theta^{i+1}=\theta$
+  \newline else $\theta^{i+1}=\theta^i$
+\end{itemize}
+We will run this iteration 1000 times and treat the first 50 as burnins 
+\newpage
+\subsection*{R Output}
+R code:
+\begin{Schunk}
+\begin{Sinput}
+> x = rnorm(1000,3.24,0.33);
+> T <- 10000; B <- 1000; u.mu <- runif(T); u.sig <- runif(T)
+> mu <- sig <- numeric(T); mu[1] <- 3; sig[1] <- 5 
+> REJmu <- 0; REJsig <- 0 
+> logpost = function(x,mu,sig){ 
++ loglike = sum(dnorm(x,mu,sig,log=TRUE))
++ return(loglike - log(sig))}
+> for (t in 2:T) { mut <- mu[t-1]; sigt <- sig[t-1] 
++ mucand <- mut + runif(1,-0.5,0.5) 
++ sigcand <- abs(sigt + runif(1,-0.5,0.5)) 
++ log.alph.mu = logpost(x,mucand,sigt)-logpost(x,mut,sigt) 
++ if (log(u.mu[t]) < log.alph.mu) mu[t] <- mucand 
++ else { mu[t] <- mut; REJmu <- REJmu+1 } 
++ log.alph.sig = logpost(x,mu[t],sigcand)-logpost(x,mu[t],sigt) 
++ if (log(u.sig[t]) < log.alph.sig) sig[t] <- sigcand 
++ else { sig[t] <- sigt; REJsig <- REJsig+1 }} 
+> REJratemu <- REJmu/T; REJratesig <- REJsig/T; 
+> samp <- 1001:10000; musamp <- mu[samp]; sigsamp <- sig[samp] 
+> hist(musamp,50, xlab='Shooting Percentages', main='Historgram of Shooting Percentages') 
+> mu.den <- density(musamp)
+> plot(mu.den)  
+> plot(musamp,sigsamp) 
+> 00
+\end{Sinput}
+\begin{Soutput}
+[1] 0
+\end{Soutput}
+\end{Schunk}
+\includegraphics{hnh-011}
+
+
+\newpage
+\section*{Further Discussion}
+
+In this paper, we examined how the Metropolis Algorithm, the Metropolis- Hastings Algorithm and the Gibbs Sampler operates and their respective usefulness in sampling. Through simulation these algorithms use  probabilities of separate events merging them into a composite picture which gives an approximation that can then be used to solve a problem. All three of these processes can be categorized as a Markov Chain Monte Carlo Method. These methods can be used to complete various tasks such as numerical approximations of multi-dimensional integrals. The main algorithm, the Metropolis-Hastings Algorithm, specifically is primarily used for numerical integration. The Gibbs Sampler, a variation of the Metropolis-Hastings Algorithm, is primarily used for statistical inference more specifically Bayesian inference, determining the best value of a parameter. 
+
+R Studio was used in the making of this paper to create various R codes and different types of  graphs. R Studio is a free and open-source integrated development environment for R, a programming language for statistical computing and graphics.There currently exists other software packages that can carry the Gibbs Sampler such as BUGS  Bayesian inference Using Gibbs Sampling and  JAGS is Just Another Gibbs Sampler. Both software packages simulate Bayesian hierarchical models using Markov chain Monte Carlo.
+
+Markov Chain Monte Carlo methods are very prevalent today particularly in statistics, computational physics,biology, linguistics, econometric and computing science.  Some real world applications include economical sector where option pricing in relation to the stock market, state space models epidemiology and meteorology. Mixture models can be created for cluster analysis pertaining to population studies as well as operational optimization for various disciplines. In order to complete this various application more complex Markov Chain Monte Carlo method are required to create estimation model. The applications of the Metropolis and Metropolis-Hastings Algorithm and Gibbs Sampling  are not constrained to the parameters of this paper. 
+
+In the future, it would be interesting to continue the study of various different Markov Chain Monte Carlo Methods and hopefully apply them to basketball analytics. In conclusion, this paper was only a foundation for the Metropolis Algorithm, Metropolis-Hastings Algorithm and Gibbs Sampler. Many more applications and outcomes can found and studied using the incredible results we can achieve through these various algorithms.
+
+\newpage
+
+\section{Bibliography}
+\begin{enumerate}
+  \item Introduction to Probability by Charles M. Grinstead J. Lauire Snell
+\item{Introduction to Monte Carlo and MCMC Methods by Anotonietta Mira}
+\item An Introduction to MCMC Sampling Methods 
+\item The Conjugate Prior for the Normal Distribution by Michael I. Jordan
+\item Gibbs Sampler Examples by Ryan Martin
+\item Metropolis- Hastings Sampling by Darren Wilkinson
+\item Metropolis- Hastings Sampling by Eric F. Lock
+\end{enumerate}
+
+
+
+\end{document}
